@@ -18,6 +18,7 @@ from src.logger import logger
 from src.storage import Storage, FileStorage, MongoStorage
 from src.utils import get_role_and_content
 from src.service.youtube import Youtube, YoutubeTranscriptReader
+from src.service.bilibili import Bilibili, BilibiliTranscriptReader
 from src.service.website import Website, WebsiteReader
 from src.mongodb import mongodb
 
@@ -30,6 +31,7 @@ line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 storage = None
 youtube = Youtube(step=4)
+bilibili = Bilibili(step=2)
 website = Website()
 
 
@@ -86,7 +88,7 @@ def handle_text_message(event):
             msg = TextSendMessage(text=
                                   "指令：\n" +
                                   "/Reg + API Token\n👉 API Token 請先到 https://platform.openai.com/ 註冊登入後取得\n\n" +
-                                  "/RegGroup\n👉 已注册的用户可以将注册其所在的群组，注册后群组中的人共用同一个 API Token 以及历史信息\n\n" +
+                                  "/RegGroup\n👉 已注册的用户可以为其所在的群组注册，注册后群组中的人共用同一个 API Token 以及历史信息\n\n" +
                                   "/SysMsg + Prompt\n👉 Prompt 可以命令機器人扮演某個角色，例如：請你扮演擅長做總結的人\n\n" +
                                   "/History\n👉 打印当前对话中存储的历史内容\n\n" +
                                   "/Clear\n👉 這個指令能夠清除歷史訊息\n\n" +
@@ -149,6 +151,16 @@ def handle_text_message(event):
                         raise Exception(error_message)
                     youtube_transcript_reader = YoutubeTranscriptReader(user_model, os.getenv('OPENAI_MODEL_ENGINE'))
                     is_successful, response, error_message = youtube_transcript_reader.summarize(chunks)
+                    if not is_successful:
+                        raise Exception(error_message)
+                    role, response = get_role_and_content(response)
+                    msg = TextSendMessage(text=response)
+                elif bilibili.retrieve_video_id(text):
+                    is_successful, chunks, error_message = bilibili.get_transcript_chunks(bilibili.retrieve_video_id(text))
+                    if not is_successful:
+                        raise Exception(error_message)
+                    bilibili_transcript_reader = BilibiliTranscriptReader(user_model, os.getenv('OPENAI_MODEL_ENGINE'))
+                    is_successful, response, error_message = bilibili_transcript_reader.summarize(chunks)
                     if not is_successful:
                         raise Exception(error_message)
                     role, response = get_role_and_content(response)

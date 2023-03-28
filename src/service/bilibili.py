@@ -5,6 +5,8 @@ from src.utils import get_role_and_content
 import requests
 from youtube_transcript_api import NoTranscriptFound, TranscriptsDisabled
 from src.service.bilibili_grpc.service.subtitle import Subtitle
+from http.cookiejar import Cookie, MozillaCookieJar
+
 
 BILIBILI_SYSTEM_MESSAGE = "你现在非常擅于做资料的整理、总结、归纳、统整，并能专注于细节、且能提出观点"
 PART_MESSAGE_FORMAT = """ PART {} START
@@ -14,6 +16,14 @@ PART {} END
 WHOLE_MESSAGE_FORMAT = "下面是每一个部分的小结论：\"\"\"{}\"\"\" \n\n 请给我全部小结论的总结，字数约 100 字左右"
 SINGLE_MESSAGE_FORMAT = "下面是一个 Bilibili 影片的字幕： \"\"\"{}\"\"\" \n\n请总结出这部影片的重点与一些细节，字数约 100 字左右"
 
+COOKIE_FILE = os.getenv('BILIBILI_COOKIE_FILE')
+
+def load_cookies_from_mozilla(filename):
+    ns_cookiejar = MozillaCookieJar()
+    ns_cookiejar.load(filename, ignore_discard=True, ignore_expires=True)
+    return ns_cookiejar
+
+cookies = load_cookies_from_mozilla(COOKIE_FILE)
 
 class Bilibili:
     def __init__(self, step):
@@ -26,27 +36,27 @@ class Bilibili:
                 vid_arg = f"bvid={video_id}"
             else:
                 vid_arg = f"aid={video_id}"
-            data = requests.get(f"https://api.bilibili.com/x/web-interface/view?{vid_arg}", headers={'Accept': 'application/json'}).json()["data"]
+            data = requests.get(f"https://api.bilibili.com/x/web-interface/view?{vid_arg}", headers={'Accept': 'application/json'}, cookies=cookies).json()["data"]
             cid = data["cid"]
             aid = data["aid"]
             subs = []
             try:
-                subs += requests.get(f"https://api.bilibili.com/x/player/v2?cid={cid}&{vid_arg}").json()["data"]["subtitle"]["subtitles"]
+                subs += requests.get(f"https://api.bilibili.com/x/player/v2?cid={cid}&{vid_arg}", cookies=cookies).json()["data"]["subtitle"]["subtitles"]
             except:
                 pass
             try:
-                subs += requests.get(f"https://api.bilibili.com/x/web-interface/view?cid={cid}&{vid_arg}").json()["data"]["subtitle"]["list"]
+                subs += requests.get(f"https://api.bilibili.com/x/web-interface/view?cid={cid}&{vid_arg}", cookies=cookies).json()["data"]["subtitle"]["list"]
             except:
                 pass
             try:
-                subs += Subtitle().request(aid, cid, stype=1)
+                subs += Subtitle().request(aid, cid, stype=1, cookies=cookies)
             except:
                 pass
             if not subs:
                 raise TranscriptsDisabled(video_id)
             langs = {sub["lan"]:idx for idx, sub in enumerate(subs)}
             sub = None
-            req_langs = ["zh-CN", "zh-Hans", "en"]
+            req_langs = ["zh-CN", "zh-Hans", "ai-zh", "en"]
             for locale in req_langs:
                 if locale in langs:
                     sub = subs[langs[locale]]

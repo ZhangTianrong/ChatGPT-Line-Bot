@@ -120,3 +120,4 @@ dist
 /env
 db.json
 __pycache__
+external

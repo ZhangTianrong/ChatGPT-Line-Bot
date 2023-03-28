@@ -1,4 +1,6 @@
 from dotenv import load_dotenv
+load_dotenv('.env')
+
 from flask import Flask, request, abort
 from linebot import (
     LineBotApi, WebhookHandler
@@ -23,8 +25,6 @@ from src.service.website import Website, WebsiteReader
 from src.mongodb import mongodb
 
 from waitress import serve
-
-load_dotenv('.env')
 
 app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))

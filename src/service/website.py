@@ -20,6 +20,8 @@ WEBSITE_MESSAGE_FORMAT = """
     - 主題： '...'
     - 重點： '...'
     - 獨特觀點： '...'
+
+    注意，重点部分应当详实，独热观点部分尽量使用 bullet point.
 """
 
 
@@ -37,7 +39,8 @@ class Website:
         main = BeautifulSoup(hotpage.text, 'html.parser')
         chunks = [article.text.strip() for article in main.find_all('article')]
         if chunks == []:
-            chunks = [article.text.strip() for article in main.find_all('div', class_='content')]
+            chunks = [article.text.strip() for article in main.find_all('div')]
+            chunks = [i for i in chunks if len(i) > 20]
         return chunks
 
 

@@ -21,10 +21,14 @@ from src.storage import Storage, FileStorage, MongoStorage
 from src.utils import get_role_and_content
 from src.service.youtube import Youtube, YoutubeTranscriptReader
 from src.service.bilibili import Bilibili, BilibiliTranscriptReader
+from src.service.pdf import PDF, PDFQA
 from src.service.website import Website, WebsiteReader
 from src.mongodb import mongodb
 
 from waitress import serve
+import tempfile
+import requests
+import re
 
 app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
@@ -32,11 +36,12 @@ handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 storage = None
 youtube = Youtube(step=4)
 bilibili = Bilibili(step=2)
+pdf = PDF()
 website = Website()
-
 
 memory = Memory(system_message=os.getenv('SYSTEM_MESSAGE'), memory_message_count=2)
 model_management = {}
+pdfqa_management = {}
 api_keys = {}
 
 
@@ -72,6 +77,7 @@ def handle_text_message(event):
             if not is_successful:
                 raise ValueError('Invalid API token')
             model_management[user_id] = model
+            pdfqa_management[user_id] = PDFQA(openai_api_key=api_key)
             storage.save({
                 user_id: api_key
             })
@@ -82,6 +88,7 @@ def handle_text_message(event):
                 msg = TextSendMessage(text='该命令仅在群组中有效')
             else:
                 model_management[group_id] = model_management[user_id]
+                pdfqa_management[group_id] = PDFQA(openai_api_key=pdfqa_management[user_id].openai_api_key)
                 msg = TextSendMessage(text='用户具有有效 token，群组註冊成功')
 
         elif text.startswith('/Help'):
@@ -111,8 +118,10 @@ def handle_text_message(event):
         elif text.startswith('/Clear'):
             if group_id is None:
                 memory.remove(user_id)
+                pdfqa_management[user_id] = PDFQA(openai_api_key=pdfqa_management[user_id].openai_api_key)
             else:
                 memory.remove(group_id)
+                pdfqa_management[group_id] = PDFQA(openai_api_key=pdfqa_management[group_id].openai_api_key)
             msg = TextSendMessage(text='歷史訊息清除成功')
 
         elif text.startswith('/Image'):
@@ -135,7 +144,7 @@ def handle_text_message(event):
             else:
                 memory.append(group_id, 'assistant', url)
 
-        elif text.startswith('/Chat'):
+        elif text.startswith('/Chat '):
             text = text[5:].strip()
             if group_id is not None:
                 user_model = model_management[group_id]
@@ -187,7 +196,47 @@ def handle_text_message(event):
                 memory.append(user_id, role, response)
             else:
                 memory.append(group_id, role, response)
-                
+        
+        elif text.startswith('/ChatPDF '):
+            # raise Exception("Not yet implemented.")
+            text = text[8:].strip()
+            if group_id is not None:
+                user_model = model_management[group_id]
+                user_pdfqa = pdfqa_management[group_id]
+                memory.append(group_id, 'user', text)
+            else:
+                user_model = model_management[user_id]
+                user_pdfqa = pdfqa_management[user_id]
+                memory.append(user_id, 'user', text)
+            pdf_link = pdf.get_pdf_link(text)
+            if pdf_link:
+                response = requests.get(pdf_link)
+                if not response.headers['content-type'].endswith("pdf"):
+                    raise Exception("The PDF file cannot be downloaded.")
+                if "Content-Disposition" in response.headers.keys():
+                    pdf_fname = re.findall("filename=(.+)", response.headers["Content-Disposition"])[0]
+                else:
+                    pdf_fname = os.path.basename(pdf_link)
+                if not pdf_fname.endswith(".pdf"):
+                    pdf_fname += ".pdf"
+                pdf_path = os.path.join(pdf_dir, pdf_fname)
+                with open(pdf_path, "wb+") as pdf_file:
+                    pdf_file.write(response.content)
+                try:
+                    user_pdfqa.add(pdf_path)
+                except ValueError as e:
+                    raise Exception(str(e))
+                msg = TextSendMessage(text=f"The PDF file is loaded. Now {len(user_pdfqa.docs)} PDF in the collection.")
+            else:
+                if not len(user_pdfqa.docs):
+                    msg = TextSendMessage(text="Please load a PDF file first")
+                else:
+                    try:
+                        ans = user_pdfqa.query(text)
+                    except Exception as e:
+                        raise Exception(str(e))
+                    msg = TextSendMessage(text=ans.formatted_answer)
+
     except ValueError:
         msg = TextSendMessage(text='Token 無效，請重新註冊，格式為 /Reg sk-xxxxx')
     except KeyError:
@@ -256,7 +305,9 @@ if __name__ == "__main__":
         data = storage.load()
         for user_id in data.keys():
             model_management[user_id] = OpenAIModel(api_key=data[user_id])
+            pdfqa_management[user_id] = PDFQA(openai_api_key=data[user_id])
     except FileNotFoundError:
         pass
     # app.run(host='0.0.0.0', port=8080)
-    serve(app, host="0.0.0.0", port=8080)
+    with tempfile.TemporaryDirectory() as pdf_dir:
+        serve(app, host="0.0.0.0", port=8080)

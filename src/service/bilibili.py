@@ -10,11 +10,11 @@ from http.cookiejar import Cookie, MozillaCookieJar
 
 BILIBILI_SYSTEM_MESSAGE = "你现在非常擅于做资料的整理、总结、归纳、统整，并能专注于细节、且能提出观点"
 PART_MESSAGE_FORMAT = """ PART {} START
-下面是一个 Bilibili 影片的部分字幕： \"\"\"{}\"\"\" \n\n请总结出这部影片的重点与一些细节，字数约 100 字左右
+下面是一个 Bilibili 影片的部分字幕： \"\"\"{}\"\"\" \n\n请总结出这部影片的重点与一些细节，字数约 300 字左右
 PART {} END
 """
-WHOLE_MESSAGE_FORMAT = "下面是每一个部分的小结论：\"\"\"{}\"\"\" \n\n 请给我全部小结论的总结，字数约 100 字左右"
-SINGLE_MESSAGE_FORMAT = "下面是一个 Bilibili 影片的字幕： \"\"\"{}\"\"\" \n\n请总结出这部影片的重点与一些细节，字数约 100 字左右"
+WHOLE_MESSAGE_FORMAT = "下面是每一个部分的小结论：\"\"\"{}\"\"\" \n\n 请给我全部小结论的总结，字数约 300 字左右"
+SINGLE_MESSAGE_FORMAT = "下面是一个 Bilibili 影片的字幕： \"\"\"{}\"\"\" \n\n请总结出这部影片的重点与一些细节，字数约 300 字左右"
 
 COOKIE_FILE = os.getenv('BILIBILI_COOKIE_FILE')
 

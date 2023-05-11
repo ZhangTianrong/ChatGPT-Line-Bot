@@ -1,5 +1,14 @@
 # ChatGPT Line Bot
 
+## 更新 since fork
++ 增加 Bilibili AI 字幕总结功能，需要提供 cookie 并放置于 `external/bilibili_cookie.txt`.
++ 增加群组共享 API key 功能，已经和 bot 注册过的用户可以在其所在群组中通过 `RegGroup` 命令将自己的 key 共享给群组中的其他用户，此时历史信息也为共享的。群组注册是 transient 的，服务重启后需要重新注册。
++ 改用 `waitress` 代替 `flask` 内置服务器
++ 将中文默认输出修改为简体
++ 将指令修改为英文方便输入
+
+---
+
 中文 | [English](README.en.md)
 
 [![license](https://img.shields.io/pypi/l/ansicolortags.svg)](LICENSE) [![Release](https://img.shields.io/github/v/release/TheExplainthis/ChatGPT-Line-Bot)](https://github.com/TheExplainthis/ChatGPT-Line-Bot/releases/)
